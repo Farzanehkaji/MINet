@@ -5,15 +5,15 @@ __all__ = ["proj_root", "arg_config"]
 from collections import OrderedDict
 
 proj_root = os.path.dirname(__file__)
-datasets_root = "/home/lart/Datasets/"
+datasets_root = "../../MINet-Datasets"
 
-ecssd_path = os.path.join(datasets_root, "Saliency/RGBSOD", "ECSSD")
-dutomron_path = os.path.join(datasets_root, "Saliency/RGBSOD", "DUT-OMRON")
-hkuis_path = os.path.join(datasets_root, "Saliency/RGBSOD", "HKU-IS")
-pascals_path = os.path.join(datasets_root, "Saliency/RGBSOD", "PASCAL-S")
-soc_path = os.path.join(datasets_root, "Saliency/RGBSOD", "SOC/Test")
-dutstr_path = os.path.join(datasets_root, "Saliency/RGBSOD", "DUTS/Train")
-dutste_path = os.path.join(datasets_root, "Saliency/RGBSOD", "DUTS/Test")
+ecssd_path = os.path.join(datasets_root, "ECSSD")
+dutomron_path = os.path.join(datasets_root, "DUT-OMRON")
+hkuis_path = os.path.join(datasets_root, "HKU-IS")
+pascals_path = os.path.join(datasets_root, "PASCAL-S")
+soc_path = os.path.join(datasets_root, "SOC/Test")
+dutstr_path = os.path.join(datasets_root, "DUTS/Train")
+dutste_path = os.path.join(datasets_root, "DUTS/Test")
 
 arg_config = {
     "model": "MINet_VGG16",  # 实际使用的模型，需要在`network/__init__.py`中导入
@@ -35,7 +35,7 @@ arg_config = {
                 "hku-is": hkuis_path,
                 "duts": dutste_path,
                 "dut-omron": dutomron_path,
-                "soc": soc_path,
+                # "soc": soc_path,
             },
         ),
     },
