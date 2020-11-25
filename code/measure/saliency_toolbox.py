@@ -290,10 +290,11 @@ def ssim(gt, sm):
 
 def divide_sm(sm, x, y):
     # copy the 4 regions
-    lt = sm[:y, :x]
-    rt = sm[:y, x:]
-    lb = sm[y:, :x]
-    rb = sm[y:, x:]
+    # explicit convert to integer
+    lt = sm[:int(y), :int(x)]
+    rt = sm[:int(y), int(x):]
+    lb = sm[int(y):, :int(x)]
+    rb = sm[int(y):, int(x):]
 
     return lt, rt, lb, rb
 
@@ -303,10 +304,11 @@ def divide_gt(gt, x, y):
     area = width * height
 
     # copy the 4 regions
-    lt = gt[:y, :x]
-    rt = gt[:y, x:]
-    lb = gt[y:, :x]
-    rb = gt[y:, x:]
+    # explicit convert to integer
+    lt = gt[:int(y), :int(x)]
+    rt = gt[:int(y), int(x):]
+    lb = gt[int(y):, :int(x)]
+    rb = gt[int(y):, int(x):]
 
     # The different weight (each block proportional to the GT foreground region).
     w1 = (x * y) / area
@@ -352,9 +354,18 @@ def s_region(gt, sm):
 
 
 def object(gt, sm):
-    x = np.mean(sm[gt == 1])
+    # x = np.mean(sm[gt == 1])
     # compute the standard deviations of the foreground or background in sm
-    sigma_x = np.std(sm[gt == 1])
+    # sigma_x = np.std(sm[gt == 1])
+
+    # sm[gt == 1] may be empty
+    if (sm[gt == 1]).size==0:
+        x = 0
+        sigma_x = 0
+    else:
+        x = np.mean(sm[gt == 1])
+        sigma_x = np.std(sm[gt == 1])
+    
     score = 2.0 * x / (x ** 2 + 1.0 + sigma_x + eps)
     return score
 

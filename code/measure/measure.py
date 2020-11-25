@@ -11,7 +11,6 @@ gt_dir = 'MINet-Datasets/DUT-OMRON/Mask'
 
 
 # At worst, we can manully get the results like this
-# 'S-measure' is buggy at this moment
 res    = calculate_measures(gt_dir, sm_dir, ['MAE', 'E-measure', 'S-measure', 'Max-F', 'Adp-F', 'Wgt-F'], 
 save=False)
 
