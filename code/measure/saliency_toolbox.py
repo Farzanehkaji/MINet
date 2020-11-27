@@ -42,11 +42,13 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
     """
 
     values = dict()
+    pr = dict()
+    
     for idx in measures:
         values[idx] = list()
         if idx == 'Max-F':
-            values['Precision'] = list()
-            values['Recall']    = list()
+            pr['Precision'] = list()
+            pr['Recall']    = list()
 
     for gt_name in tqdm(glob(os.path.join(gt_dir, '*'))):
         _, name = os.path.split(gt_name)
@@ -68,8 +70,8 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
                 values['Wgt-F'].append(weighted_fmeasure(gt, sm))
             if 'Max-F' in measures:
                 prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
-                values['Precision'].append(prec)
-                values['Recall'].append(recall)
+                pr['Precision'].append(prec)
+                pr['Recall'].append(recall)
         else:
             print("\n{} not found!".format(os.path.basename(sm_name)))
             print('---' * 10)
@@ -90,11 +92,12 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
         values['Wgt-F'] = np.mean(values['Wgt-F'])
 
     if 'Max-F' in measures:
-        values['Precision'] = np.mean(np.hstack(values['Precision'][:]), 1)
-        values['Recall'] = np.mean(np.hstack(values['Recall'][:]), 1)
-        f_measures = (1 + beta ** 2) * values['Precision'] * values['Recall'] / (
-                beta ** 2 * values['Precision'] + values['Recall'])
-        values['Fmeasure_all_thresholds'] = f_measures
+        pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)
+        pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
+        f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
+                beta ** 2 * pr['Precision'] + pr['Recall'])
+        pr['Fmeasure_all_thresholds'] = f_measures
+        # pr['Max-F'] = np.max(f_measures)
         values['Max-F'] = np.max(f_measures)
 
     if save:
@@ -103,7 +106,8 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
         for key in values.keys():
             np.save(os.path.join(save, key + ".npy"), values[key])
 
-    return values
+
+    return values, pr
 
 
 def read_and_normalize(gt_path, sm_path, gt_threshold=0.5):
@@ -365,6 +369,7 @@ def object(gt, sm):
     else:
         x = np.mean(sm[gt == 1])
         sigma_x = np.std(sm[gt == 1])
+
     
     score = 2.0 * x / (x ** 2 + 1.0 + sigma_x + eps)
     return score
