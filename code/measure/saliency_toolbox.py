@@ -105,16 +105,19 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
         values['Wgt-F'] = np.mean(values['Wgt-F'])
 
     if 'Max-F' in measures:
-        pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)
-        pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
-        f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
-                beta ** 2 * pr['Precision'] + pr['Recall'])
+        if len(pr['Precision']) > 0:
+            pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)
+            pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
+            f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
+                    beta ** 2 * pr['Precision'] + pr['Recall'])
 
-        # Remove any NaN values to allow calculation
-        f_measures[np.isnan(f_measures)] = 0
-        pr['Fmeasure_all_thresholds'] = f_measures
-        # pr['Max-F'] = np.max(f_measures)
-        values['Max-F'] = np.max(f_measures)
+            # Remove any NaN values to allow calculation
+            f_measures[np.isnan(f_measures)] = 0
+            pr['Fmeasure_all_thresholds'] = f_measures
+            # pr['Max-F'] = np.max(f_measures)
+            values['Max-F'] = np.max(f_measures)
+        else:
+            values['Max-F'] = 0
 
     if save:
         if not os.path.isdir(save):
@@ -562,6 +565,8 @@ def prec_recall(gt, sm, num_th):
     gt_cnt = np.sum(gt)
 
     if gt_cnt == 0:
+        # prec = []
+        # recall = []
         prec = np.zeros((num_th, 1), np.float32)
         recall = np.zeros((num_th, 1), np.float32)
     else:

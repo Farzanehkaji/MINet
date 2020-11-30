@@ -128,20 +128,26 @@ class XLSXRecoder(object):
             "Please make sure you are " "working with xlsx files " "created by `create_xlsx`"
         )
         sheet = wb["Results"]
-        num_cols = num_metrics * num_datasets + 1
+        num_cols = sheet.max_column
 
-        if model_name in sheet["A"]:
+        model_in_file = False
+        for i in range(sheet.max_row):
+            if sheet.cell(row=i+1,column=1).value == model_name:
+                model_in_file = True
+                idx_insert_row = i+1
+
+        if model_in_file == False:
             # If model name already exists in spreadsheet, only need to update the corresponding data set results
-            idx_insert_row = sheet["A"].find(model_name)
-        else:
             idx_insert_row = len(sheet["A"]) + 1
             sheet.cell(row=idx_insert_row, column=1, value=model_name)
 
         for dataset_name in data.keys():
             # Loop through each cell
+            dataset_found = False
             for row in sheet.iter_rows(min_row=1, min_col=2, max_col=num_cols, max_row=1):
                 for cell in row:
                     if cell.value == dataset_name.upper():
+                        dataset_found = True
                         for i in range(num_metrics):
                             metric_name = sheet.cell(row=3, column=cell.column + i).value
                             sheet.cell(
@@ -149,6 +155,45 @@ class XLSXRecoder(object):
                                 column=cell.column + i,
                                 value=data[dataset_name][metric_name],
                             )
+            # Data set not in spreadsheet yet
+            if dataset_found == False:
+                insertcol = sheet.max_column + 1
+
+                if insertcol // 26 == 0:
+                    start_region_idx = f"{chr(ord('A') + insertcol)}1"
+                else:
+                    start_region_idx = (
+                        f"{chr(ord('A') + insertcol // 26 - 1)}"
+                        f"{chr(ord('A') + insertcol % 26)}1"
+                    )
+                if (insertcol + num_metrics) // 26 == 0:
+                    end_region_idx = f"{chr(ord('A') + insertcol + num_metrics)}1"
+                else:
+                    end_region_idx = (
+                        f"{chr(ord('A') + (insertcol + num_metrics) // 26 - 1)}"
+                        f"{chr(ord('A') + (insertcol + num_metrics) % 26)}1"
+                    )
+
+                region_idx = f"{start_region_idx}:{end_region_idx}"
+                sheet.merge_cells(region_idx)  # merge cells for each dataset heading
+                sheet[start_region_idx] = dataset_name.upper()
+
+                # Add number of data items
+                if dataset_name.upper() in self.dataset_list:
+                    for i, dataset_name2 in enumerate(self.dataset_list):
+                        if dataset_name2 == dataset_name.upper():
+                            start_region_idx = start_region_idx.replace("1", "2")
+                            sheet[start_region_idx] = self.dataset_num_list[i]
+
+                # Add measurement titles
+                for i, measure in enumerate(self.metric_list):
+                    sheet.cell(row=3,column=i+insertcol,value=measure)
+
+                # Add measurement data
+                for row in sheet.iter_rows(min_row=idx_insert_row, min_col=insertcol, max_col=insertcol + num_metrics, max_row=idx_insert_row):
+                    for cell in row:
+                        metric_name = sheet.cell(row=3, column=cell.column).value
+                        cell.value = data[dataset_name][metric_name]
 
         # write to second worksheet
         if self.module_name in wb.sheetnames:
@@ -173,9 +218,11 @@ class XLSXRecoder(object):
                 sheet[f"{chr(ord('C') + i)}3"] = metric_name
 
         for dataset_name in data.keys():
-            for row in sheet.iter_rows(min_row=4, min_col=3, max_col=num_metrics+2, max_row=3+num_datasets):
+            dataset_found = False
+            for row in sheet.iter_rows(min_row=4, min_col=3, max_col=num_metrics+2, max_row=sheet.max_row):
                 for cell in row:
                     if sheet.cell(row=cell.row, column=1).value == dataset_name.upper():
+                        dataset_found = True
                         metric_name = sheet.cell(row=3, column=cell.column).value
                         sheet.cell(
                             row=cell.row,
@@ -183,6 +230,25 @@ class XLSXRecoder(object):
                             value=data[dataset_name][metric_name],
                         )
 
+            if dataset_found == False:
+                # Add new dataset to spreadsheet
+                insertrow = sheet.max_row + 1
+                sheet.cell(row=insertrow, column=1, value=dataset_name.upper())
+
+                # Add number of data items
+                if dataset_name.upper() in self.dataset_list:
+                    for i, dataset_name2 in enumerate(self.dataset_list):
+                        if dataset_name2 == dataset_name.upper():
+                            sheet.cell(row=insertrow, column=2, value=self.dataset_num_list[i])
+
+                for row in sheet.iter_rows(min_row=insertrow, min_col=3, max_col=num_metrics+2, max_row=insertrow):
+                    for cell in row:
+                        metric_name = sheet.cell(row=3, column=cell.column).value
+                        sheet.cell(
+                            row=cell.row,
+                            column=cell.column,
+                            value=data[dataset_name][metric_name],
+                        )
 
         wb.save(self.path)
 

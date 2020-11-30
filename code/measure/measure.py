@@ -2,7 +2,7 @@ import os
 from openpyxl import load_workbook, Workbook
 from saliency_toolbox import calculate_measures
 
-sm_dir = "output/MINet_VGG16_S320_BS4_E50_WE1_AMPn_LR0.001_LTpoly_OTsgdtrick_ALy_BIy_MSn"
+sm_dir = "output/MINet_Res50_S320_BS4_E50_WE1_AMPn_LR0.001_LTpoly_OTsgdtrick_ALy_BIy_MSn"
 # dataset = "DUT-OMRON"
 gt_dir = "../../MINet-Datasets"
 
@@ -12,7 +12,7 @@ dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
 
 # List of metrics
 # ['MAE', 'E-measure', 'S-measure', 'Max-F', 'Adp-F', 'Wgt-F']
-metric_list = ['MAE', 'E-measure', 'S-measure', 'Max-F', 'Adp-F', 'Wgt-F']
+metric_list = ['Max-F', 'Adp-F', 'Wgt-F','E-measure', 'S-measure','MAE']
 
 print("metric_list:" + str(metric_list))
 
@@ -33,9 +33,11 @@ for i, dataset in enumerate(dataset_list):
 
     sm = os.path.join(sm_dir, "pre", dataset.lower())
     
-    # DUTS needs special treatment due to its folder structure
+    # DUTS and SOC need special treatment due to its folder structure
     if dataset == "DUTS":
         gt = os.path.join(gt_dir, dataset, "Test", "Mask")
+    elif dataset == "SOC":
+        gt = os.path.join(gt_dir, dataset, "Validation", "Mask")
     else:
         gt = os.path.join(gt_dir, dataset, "Mask")
 
@@ -52,4 +54,4 @@ for i, dataset in enumerate(dataset_list):
     # if pr:
     #     print(pr)
 
-wb.save("output/Mesure Results.xlsx")
+wb.save("output/Mesure Results Res50.xlsx")
