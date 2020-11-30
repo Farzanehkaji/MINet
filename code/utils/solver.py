@@ -328,7 +328,7 @@ class Solver:
                     prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
 
                     # Check if precision recall curve exists
-                    if len(prec) != 0:
+                    if len(prec) != 0 and len(recall) != 0:
                         pr['Precision'].append(prec)
                         pr['Recall'].append(recall)
 
@@ -353,6 +353,9 @@ class Solver:
             pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
             f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
                     beta ** 2 * pr['Precision'] + pr['Recall'])
+
+            # Remove any NaN values to allow calculation
+            f_measures[np.isnan(f_measures)] = 0
             pr['Fmeasure_all_thresholds'] = f_measures
             # pr['Max-F'] = np.max(f_measures)
             values['Max-F'] = np.max(f_measures)

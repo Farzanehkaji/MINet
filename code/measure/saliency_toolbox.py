@@ -65,13 +65,25 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
             if 'S-measure' in measures:
                 values['S-measure'].append(s_measure(gt, sm))
             if 'Adp-F' in measures:
-                values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta))
+                tmp_Adp_F = adaptive_fmeasure(gt, sm, beta)
+
+                # If ground truth is black image, adaptive F measure will return -1
+                if tmp_Adp_F != -1:
+                    values['Adp-F'].append(tmp_Adp_F)
             if 'Wgt-F' in measures:
-                values['Wgt-F'].append(weighted_fmeasure(gt, sm))
+                tmp_Wgt_F = weighted_fmeasure(gt, sm)
+
+                # If ground truth is black image, weighted F measure will return -1
+                if tmp_Wgt_F != -1:
+                    values['Wgt-F'].append(tmp_Wgt_F)
             if 'Max-F' in measures:
                 prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
-                pr['Precision'].append(prec)
-                pr['Recall'].append(recall)
+
+                # Check if precision recall curve exists
+                if len(prec) != 0 and len(recall) != 0:
+                    pr['Precision'].append(prec)
+                    pr['Recall'].append(recall)
+
         else:
             print("\n{} not found!".format(os.path.basename(sm_name)))
             print('---' * 10)
@@ -96,6 +108,9 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
         pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
         f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
                 beta ** 2 * pr['Precision'] + pr['Recall'])
+
+        # Remove any NaN values to allow calculation
+        f_measures[np.isnan(f_measures)] = 0
         pr['Fmeasure_all_thresholds'] = f_measures
         # pr['Max-F'] = np.max(f_measures)
         values['Max-F'] = np.max(f_measures)

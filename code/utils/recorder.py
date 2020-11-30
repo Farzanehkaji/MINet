@@ -157,22 +157,15 @@ class XLSXRecoder(object):
             sheet = wb.create_sheet(self.module_name, index=0)
 
         for dataset_name in data.keys():
-            # Look for dataset in column A
-            if dataset_name in sheet["A"]:
-                # If dataset already exists in spreadsheet, only need to update the corresponding data set results
-                idx_insert_row = sheet["A"].find(dataset_name)
-            else:
-                idx_insert_row = len(sheet["A"]) + 1
-                sheet.cell(row=idx_insert_row, column=1, value=dataset_name)
-
-            for row in sheet.iter_rows(min_row=idx_insert_row, min_col=3, max_col=num_metrics+2, max_row=idx_insert_row):
+            for row in sheet.iter_rows(min_row=4, min_col=3, max_col=num_metrics+2, max_row=3+num_datasets):
                 for cell in row:
-                    metric_name = sheet.cell(row=3, column=cell.column).value
-                    sheet.cell(
-                        row=idx_insert_row,
-                        column=cell.column,
-                        value=data[dataset_name][metric_name],
-                    )
+                    if sheet.cell(row=cell.row, column=1).value == dataset_name.upper():
+                        metric_name = sheet.cell(row=3, column=cell.column).value
+                        sheet.cell(
+                            row=cell.row,
+                            column=cell.column,
+                            value=data[dataset_name][metric_name],
+                        )
 
 
         wb.save(self.path)
