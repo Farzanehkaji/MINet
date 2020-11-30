@@ -438,10 +438,13 @@ def weighted_fmeasure(gt, sm, beta2=1):
     tpw = np.sum(gt) - np.sum(ew[gt == 1])
     fpw = np.sum(ew[gt == 0])
 
-    rec = 1 - np.mean(ew[gt == 1])  # Weighed Recall
-    prec = tpw / (eps + tpw + fpw)  # Weighted Precision
+    if len(ew[gt == 1]) != 0:
+        rec = 1 - np.mean(ew[gt == 1])  # Weighed Recall
+        prec = tpw / (eps + tpw + fpw)  # Weighted Precision
 
-    value = (1 + beta2) * (rec * prec) / (eps + (beta2 * rec) + prec)
+        value = (1 + beta2) * (rec * prec) / (eps + (beta2 * rec) + prec)
+    else:
+        value = -1
     return value
 
 def matlab_style_gauss2d(shape=(3, 3), sigma=0.5):
@@ -484,8 +487,7 @@ def adaptive_fmeasure(gt, sm, beta):
     gt_cnt = np.sum(gt)
 
     if gt_cnt == 0:
-        prec = []
-        recall = []
+        return -1
     else:
         adaptive_threshold = 2 * np.mean(sm)
         if adaptive_threshold > 1:

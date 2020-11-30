@@ -34,6 +34,7 @@ def _get_suffix(path_list):
         else:
             raise NotImplementedError
         construct_print(f"数据文件夹中包含多种扩展名，这里仅使用{ext}")
+        construct_print(f"The data folder contains a variety of extensions {ext}")
     else:
         ext = ext_list[0]
     return ext

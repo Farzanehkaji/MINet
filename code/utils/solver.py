@@ -6,11 +6,20 @@ import torch
 from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
-
+import skimage
 import network as network_lib
 from loss.CEL import CEL
 from utils.dataloader import create_loader
 from utils.metric import cal_maxf, cal_pr_mae_meanf
+from measure.saliency_toolbox import  (
+    read_and_normalize,
+    mean_square_error,
+    e_measure,
+    s_measure,
+    adaptive_fmeasure,
+    weighted_fmeasure,
+    prec_recall,
+)
 from utils.misc import (
     AvgMeter,
     construct_print,
@@ -45,7 +54,7 @@ class Solver:
         if self.arg_dict["tb_update"] > 0:
             self.tb_recorder = TBRecorder(tb_path=self.path_dict["tb"])
         if self.arg_dict["xlsx_name"]:
-            self.xlsx_recorder = XLSXRecoder(xlsx_path=self.path_dict["xlsx"])
+            self.xlsx_recorder = XLSXRecoder(xlsx_path=self.path_dict["xlsx"],module_name=self.arg_dict["model"],model_name=self.exp_name)
 
         # 依赖与前面属性的属性
         self.tr_loader = create_loader(
@@ -247,6 +256,19 @@ class Solver:
         recs = [AvgMeter() for _ in range(256)]
         meanfs = AvgMeter()
         maes = AvgMeter()
+        
+        # Measures from Saliency toolbox
+        measures = ['Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'MAE2']
+        beta=np.sqrt(0.3) # default beta parameter used in the adaptive F-measure
+        gt_threshold=0.5 # The threshold that is used to binrize ground truth maps.
+
+        values = dict() # initialize measure value dictionary
+        pr = dict() # initialize precision recall dictionary
+        for idx in measures:
+            values[idx] = list()
+            if idx == 'Max-F':
+                pr['Precision'] = list()
+                pr['Recall']    = list()
 
         tqdm_iter = tqdm(enumerate(loader), total=len(loader), leave=False)
         for test_batch_id, test_data in tqdm_iter:
@@ -269,6 +291,12 @@ class Solver:
 
                 gt_img = np.array(gt_img)
                 out_img = np.array(out_img)
+
+                # Gather images again using Saliency toolboxes import methods
+                # These images will be grayscale floats between 0 and 1
+                gt = (skimage.img_as_float(gt_img) >= gt_threshold).astype(np.float32)
+                sm = skimage.img_as_float(out_img)
+
                 ps, rs, mae, meanf = cal_pr_mae_meanf(out_img, gt_img)
                 for pidx, pdata in enumerate(zip(ps, rs)):
                     p, r = pdata
@@ -276,6 +304,59 @@ class Solver:
                     recs[pidx].update(r)
                 maes.update(mae)
                 meanfs.update(meanf)
+
+                # Compute other measures using the Saliency Toolbox
+                if 'MAE2' in measures:
+                    values['MAE2'].append(mean_square_error(gt, sm))
+                if 'E-measure' in measures:
+                    values['E-measure'].append(e_measure(gt, sm))
+                if 'S-measure' in measures:
+                    values['S-measure'].append(s_measure(gt, sm))
+                if 'Adp-F' in measures:
+                    tmp_Adp_F = adaptive_fmeasure(gt, sm, beta)
+
+                    # If ground truth is black image, adaptive F measure will return -1
+                    if tmp_Adp_F != -1:
+                        values['Adp-F'].append(tmp_Adp_F)
+                if 'Wgt-F' in measures:
+                    tmp_Wgt_F = weighted_fmeasure(gt, sm)
+
+                    # If ground truth is black image, weighted F measure will return -1
+                    if tmp_Wgt_F != -1:
+                        values['Wgt-F'].append(tmp_Wgt_F)
+                if 'Max-F' in measures:
+                    prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
+
+                    # Check if precision recall curve exists
+                    if len(prec) != 0:
+                        pr['Precision'].append(prec)
+                        pr['Recall'].append(recall)
+
+        # Compute total measures over all images
+        if 'MAE2' in measures:
+            values['MAE2'] = np.mean(values['MAE2'])
+
+        if 'E-measure' in measures:
+            values['E-measure'] = np.mean(values['E-measure'])
+
+        if 'S-measure' in measures:
+            values['S-measure'] = np.mean(values['S-measure'])
+
+        if 'Adp-F' in measures:
+            values['Adp-F'] = np.mean(values['Adp-F'])
+
+        if 'Wgt-F' in measures:
+            values['Wgt-F'] = np.mean(values['Wgt-F'])
+
+        if 'Max-F' in measures:
+            pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)
+            pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
+            f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
+                    beta ** 2 * pr['Precision'] + pr['Recall'])
+            pr['Fmeasure_all_thresholds'] = f_measures
+            # pr['Max-F'] = np.max(f_measures)
+            values['Max-F'] = np.max(f_measures)
+
         maxf = cal_maxf([pre.avg for pre in pres], [rec.avg for rec in recs])
-        results = {"MAXF": maxf, "MEANF": meanfs.avg, "MAE": maes.avg}
+        results = {"MAXF": maxf, "MEANF": meanfs.avg, "MAE": maes.avg, **values}
         return results

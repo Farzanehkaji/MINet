@@ -37,10 +37,14 @@ class TBRecorder(object):
 
 
 class XLSXRecoder(object):
-    def __init__(self, xlsx_path):
+    def __init__(self, xlsx_path, module_name, model_name):
         self.dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
         self.dataset_num_list = [5019, 5168, 1447, 1000, 850, 1200]
-        self.metric_list = ["MAXF", "MEANF", "MAE"]
+        # self.metric_list = ["MAXF", "MEANF", "MAE"]
+        self.metric_list = ["MAXF", "MEANF", "MAE",'Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'MAE2']
+
+        self.module_name = module_name
+        self.model_name = model_name
 
         self.path = xlsx_path
         if not os.path.exists(self.path):
@@ -50,11 +54,11 @@ class XLSXRecoder(object):
         num_metrics = len(self.metric_list)
         num_datasets = len(self.dataset_list)
 
-        # 创建一个Workbook对象
+        # Create a workbook object
         wb = Workbook()
-        # 创建一个Sheet对象
+        # Create a worksheet object
         sheet = wb.create_sheet(title="Results", index=0)
-        # 获取活动的sheet
+        # Add row labels
         sheet["A1"] = "name_dataset"
         sheet["A2"] = "num_dataset"
 
@@ -74,32 +78,51 @@ class XLSXRecoder(object):
                     f"{chr(ord('A') + ((i + 1) * num_metrics) % 26)}1"
                 )
             region_idx = f"{start_region_idx}:{end_region_idx}"
-            sheet.merge_cells(region_idx)  # 合并一行中的几个单元格
+            sheet.merge_cells(region_idx)  # merge cells for each dataset heading
             sheet[start_region_idx] = dataset_name.upper()
 
-            # 构造第二行数据
+            # Construct the second row of data
             start_region_idx = start_region_idx.replace("1", "2")
             sheet[start_region_idx] = self.dataset_num_list[i]
 
-        # 构造第三行数据
+        # Construct the thrid row of data
         third_row = ["metrics"] + self.metric_list * num_datasets
         sheet.append(third_row)
 
-        # 最后保存workbook
+        # Create a second worksheet object
+        sheet = wb.create_sheet(title=self.module_name, index=0)
+        # Add row labels
+        sheet["A1"] = self.model_name
+        sheet.merge_cells("A2:B2")
+        sheet["A2"] = "Datasets"
+        sheet["A3"] = "name_dataset"
+        sheet["B3"] = "num_dataset"
+
+        for i, dataset_name in enumerate(self.dataset_list):
+            sheet[f"A{i+4}"] = dataset_name.upper()
+            sheet[f"B{i+4}"] = self.dataset_num_list[i]
+
+        # Construct Measurement headings
+        sheet["C2"] = "Metrics"
+        for i, metric_name in enumerate(self.metric_list):
+            sheet[f"{chr(ord('C') + i)}3"] = metric_name
+
+        # Save the workbook
         wb.save(self.path)
 
     def write_xlsx(self, model_name, data):
         """
-        向xlsx文件中写入数据
+        Write data to xlsx file
 
-        :param model_name: 模型名字
-        :param data: 数据信息，包含数据集名字和对应的测试结果
+        :param model_name: Model name
+        :param data: Data information, including the name of the data set and the corresponding test results
         """
 
         num_metrics = len(self.metric_list)
         num_datasets = len(self.dataset_list)
 
-        # 必须先得由前面的部分进行xlsx文件的创建，确保前三行OK满足要求，后面的操作都是从第四行开始的
+        # You must first create the xlsx file from the previous function to ensure that the first 
+        # three rows meet the requirements, and the subsequent operations all start from the fourth line
         wb = load_workbook(self.path)
         assert "Results" in wb.sheetnames, (
             "Please make sure you are " "working with xlsx files " "created by `create_xlsx`"
@@ -108,24 +131,50 @@ class XLSXRecoder(object):
         num_cols = num_metrics * num_datasets + 1
 
         if model_name in sheet["A"]:
-            # 说明，该模型已经存在条目中，只需要更新对应的数据集结果即可
+            # If model name already exists in spreadsheet, only need to update the corresponding data set results
             idx_insert_row = sheet["A"].find(model_name)
         else:
             idx_insert_row = len(sheet["A"]) + 1
             sheet.cell(row=idx_insert_row, column=1, value=model_name)
 
         for dataset_name in data.keys():
-            # 遍历每个单元格
+            # Loop through each cell
             for row in sheet.iter_rows(min_row=1, min_col=2, max_col=num_cols, max_row=1):
                 for cell in row:
                     if cell.value == dataset_name.upper():
                         for i in range(num_metrics):
-                            matric_name = sheet.cell(row=3, column=cell.column + i).value
+                            metric_name = sheet.cell(row=3, column=cell.column + i).value
                             sheet.cell(
                                 row=idx_insert_row,
                                 column=cell.column + i,
-                                value=data[dataset_name][matric_name.upper()],
+                                value=data[dataset_name][metric_name],
                             )
+
+        # write to second worksheet
+        if self.module_name in wb.sheetnames:
+            sheet = wb[self.module_name]
+        else:
+            sheet = wb.create_sheet(self.module_name, index=0)
+
+        for dataset_name in data.keys():
+            # Look for dataset in column A
+            if dataset_name in sheet["A"]:
+                # If dataset already exists in spreadsheet, only need to update the corresponding data set results
+                idx_insert_row = sheet["A"].find(dataset_name)
+            else:
+                idx_insert_row = len(sheet["A"]) + 1
+                sheet.cell(row=idx_insert_row, column=1, value=dataset_name)
+
+            for row in sheet.iter_rows(min_row=idx_insert_row, min_col=3, max_col=num_metrics+2, max_row=idx_insert_row):
+                for cell in row:
+                    metric_name = sheet.cell(row=3, column=cell.column).value
+                    sheet.cell(
+                        row=idx_insert_row,
+                        column=cell.column,
+                        value=data[dataset_name][metric_name],
+                    )
+
+
         wb.save(self.path)
 
 
