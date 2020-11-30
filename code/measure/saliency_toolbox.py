@@ -6,6 +6,7 @@ from glob import glob
 from tqdm import tqdm
 from scipy.ndimage import correlate
 from scipy.ndimage.morphology import distance_transform_edt
+from PIL import Image
 
 eps = sys.float_info.epsilon
 
@@ -143,9 +144,21 @@ def read_and_normalize(gt_path, sm_path, gt_threshold=0.5):
     gt_img, sm_img : numpy.ndarray
         The prepared arrays
     """
-    gt_img = norm_img(cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE))
-    gt_img = (gt_img >= gt_threshold).astype(np.float32)
-    sm_img = norm_img(cv2.imread(sm_path, cv2.IMREAD_GRAYSCALE))
+    # gt_img = norm_img(cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE))
+    # gt_img = (gt_img >= gt_threshold).astype(np.float32)
+    # sm_img = norm_img(cv2.imread(sm_path, cv2.IMREAD_GRAYSCALE))
+    
+    gt_img = Image.open(gt_path).convert("L")
+    gt_img = np.array(gt_img)
+    gt_img = (gt_img > gt_threshold*256).astype(np.float32)
+
+    sm_img = Image.open(sm_path).convert("L")
+    sm_img = np.array(sm_img)
+    if sm_img.max() == sm_img.min():
+        sm_img = sm_img / 255
+    else:
+        sm_img = (sm_img - sm_img.min()) / (sm_img.max() - sm_img.min())
+
     if sm_img.shape[0] != gt_img.shape[0] or sm_img.shape[1] != gt_img.shape[1]:
         sm_img = cv2.resize(sm_img, (gt_img.shape[1], gt_img.shape[0]))
 
@@ -502,7 +515,7 @@ def adaptive_fmeasure(gt, sm, beta):
     gt_cnt = np.sum(gt)
 
     if gt_cnt == 0:
-        return -1
+        return 0
     else:
         adaptive_threshold = 2 * np.mean(sm)
         if adaptive_threshold > 1:
@@ -514,10 +527,14 @@ def adaptive_fmeasure(gt, sm, beta):
         if hit_cnt == 0:
             prec = 0
             recall = 0
+            value = 0
         else:
-            prec = hit_cnt / (alg_cnt + eps)
+            # prec = hit_cnt / (alg_cnt + eps)
+            prec = hit_cnt / alg_cnt
             recall = hit_cnt / gt_cnt
-    value = (1 + beta ** 2) * prec * recall / ((beta ** 2 * prec + recall) + eps)
+        
+            # value = (1 + beta ** 2) * prec * recall / ((beta ** 2 * prec + recall) + eps)
+            value = (1 + beta ** 2) * prec * recall / (beta ** 2 * prec + recall)
     return value
 
 
@@ -545,18 +562,26 @@ def prec_recall(gt, sm, num_th):
     gt_cnt = np.sum(gt)
 
     if gt_cnt == 0:
-        prec = []
-        recall = []
+        prec = np.zeros((num_th, 1), np.float32)
+        recall = np.zeros((num_th, 1), np.float32)
     else:
         hit_cnt = np.zeros((num_th, 1), np.float32)
         alg_cnt = np.zeros((num_th, 1), np.float32)
+        prec = np.zeros((num_th, 1), np.float32)
+        recall = np.zeros((num_th, 1), np.float32)
+
         thresholds = np.linspace(0, 1, num_th)
         for k, curTh in enumerate(thresholds):
             sm_binary = (sm >= curTh).astype(np.float32)
             hit_cnt[k] = np.sum(sm_binary[gt_idx])
             alg_cnt[k] = np.sum(sm_binary)
 
-        prec = hit_cnt / (alg_cnt + eps)
-        recall = hit_cnt / gt_cnt
+            if hit_cnt[k] == 0:
+                prec[k] = 0
+                recall[k] = 0
+            else:
+                # prec = hit_cnt / (alg_cnt + eps)
+                prec[k] = hit_cnt[k] / alg_cnt[k]
+                recall[k] = hit_cnt[k] / gt_cnt
 
     return prec, recall

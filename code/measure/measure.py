@@ -8,11 +8,11 @@ gt_dir = "../../MINet-Datasets"
 
 # List of datasets
 # ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
-dataset_list = ["DUTS", "HKU-IS", "ECSSD"]
+dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
 
 # List of metrics
 # ['MAE', 'E-measure', 'S-measure', 'Max-F', 'Adp-F', 'Wgt-F']
-metric_list = ['MAE', 'E-measure', 'Adp-F']
+metric_list = ['MAE', 'E-measure', 'S-measure', 'Max-F', 'Adp-F', 'Wgt-F']
 
 print("metric_list:" + str(metric_list))
 
@@ -52,4 +52,4 @@ for i, dataset in enumerate(dataset_list):
     # if pr:
     #     print(pr)
 
-wb.save("measure/Mesure Results.xlsx")
+wb.save("output/Mesure Results.xlsx")

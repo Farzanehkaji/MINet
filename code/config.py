@@ -11,15 +11,15 @@ ecssd_path = os.path.join(datasets_root, "ECSSD")
 dutomron_path = os.path.join(datasets_root, "DUT-OMRON")
 hkuis_path = os.path.join(datasets_root, "HKU-IS")
 pascals_path = os.path.join(datasets_root, "PASCAL-S")
-soc_path = os.path.join(datasets_root, "SOC/Test")
+soc_path = os.path.join(datasets_root, "SOC/Validation")
 dutstr_path = os.path.join(datasets_root, "DUTS/Train")
 dutste_path = os.path.join(datasets_root, "DUTS/Test")
 
 arg_config = {
-    "model": "MINet_VGG16",  # The netwotk model to be used. Need to import accordingly in 'network/__init__.py'
+    "model": "MINet_Res50",  # The netwotk model to be used. Need to import accordingly in 'network/__init__.py'
     "info": "",  # You can include supplmentary descriptions. It will be attached to the end of the exp_name. If left empty, nothing will be attached 
     "use_amp": False,  # Whether to enable AMP (Automatic Mixed Precision) to speed up training 
-    "resume_mode": "",  # The mode for resume parameters: ['train', 'test', '']
+    "resume_mode": "test",  # The mode for resume parameters: ['train', 'test', '']
     "use_aux_loss": True,  # Whether to enable uxiliary loss. If true, will use CEL in the training
     "save_pre": True,  # Whether to save final prediction results
     "epoch_num": 50,  # Number of epochs. Set to 0 means to test the model directly
@@ -36,7 +36,7 @@ arg_config = {
                 "hku-is": hkuis_path,
                 "duts": dutste_path,
                 "dut-omron": dutomron_path,
-                # "soc": soc_path,
+                "soc": soc_path,
             },
         ),
     },

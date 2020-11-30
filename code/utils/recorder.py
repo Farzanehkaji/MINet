@@ -156,6 +156,22 @@ class XLSXRecoder(object):
         else:
             sheet = wb.create_sheet(self.module_name, index=0)
 
+            # Add row labels
+            sheet["A1"] = self.model_name
+            sheet.merge_cells("A2:B2")
+            sheet["A2"] = "Datasets"
+            sheet["A3"] = "name_dataset"
+            sheet["B3"] = "num_dataset"
+
+            for i, dataset_name in enumerate(self.dataset_list):
+                sheet[f"A{i+4}"] = dataset_name.upper()
+                sheet[f"B{i+4}"] = self.dataset_num_list[i]
+
+            # Construct Measurement headings
+            sheet["C2"] = "Metrics"
+            for i, metric_name in enumerate(self.metric_list):
+                sheet[f"{chr(ord('C') + i)}3"] = metric_name
+
         for dataset_name in data.keys():
             for row in sheet.iter_rows(min_row=4, min_col=3, max_col=num_metrics+2, max_row=3+num_datasets):
                 for cell in row:

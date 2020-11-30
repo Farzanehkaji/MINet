@@ -294,8 +294,13 @@ class Solver:
 
                 # Gather images again using Saliency toolboxes import methods
                 # These images will be grayscale floats between 0 and 1
-                gt = (skimage.img_as_float(gt_img) >= gt_threshold).astype(np.float32)
-                sm = skimage.img_as_float(out_img)
+                sm = out_img.astype(np.float32)
+                if sm.max() == sm.min():
+                    sm = sm / 255
+                else:
+                    sm = (sm - sm.min()) / (sm.max() - sm.min())
+                gt = np.zeros_like(gt_img, dtype=np.float32)
+                gt[gt_img > 128] = 1
 
                 ps, rs, mae, meanf = cal_pr_mae_meanf(out_img, gt_img)
                 for pidx, pdata in enumerate(zip(ps, rs)):
