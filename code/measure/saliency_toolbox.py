@@ -299,6 +299,9 @@ def ssim(gt, sm):
     height, width = sm.shape
     num_pixels = width * height
 
+    if num_pixels == 0:
+        return 1.0
+    
     # Compute the mean of SM,GT
     sm_mean = np.mean(sm)
     gt_mean = np.mean(gt)
