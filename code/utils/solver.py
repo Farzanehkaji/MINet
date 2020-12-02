@@ -358,9 +358,9 @@ class Solver:
                 if 'Mod-Adp-F' in measures:
                     values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, True))
                 if 'Wgt-F' in measures:
-                    values['Wgt-F'].append(weighted_fmeasure(gt, sm, False))
+                    values['Wgt-F'].append(weighted_fmeasure(gt, sm, allowBlackMask=False))
                 if 'Mod-Wgt-F' in measures:
-                    values['Mod-Wgt-F'].append(weighted_fmeasure(gt, sm, True))
+                    values['Mod-Wgt-F'].append(weighted_fmeasure(gt, sm, allowBlackMask=True))
                 if 'Max-F' in measures:
                     prec, recall = prec_recall(gt, sm, 256, False)  # 256 thresholds between 0 and 1
 

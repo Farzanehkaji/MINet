@@ -17,7 +17,7 @@ metric_list = ['Max-F', 'Adp-F', 'Wgt-F', 'MAE', 'E-measure', 'S-measure','Mod-M
 print("metric_list:" + str(metric_list))
 
 wb = Workbook()
-sheet = wb.create_sheet(title="Mesure Results", index=0)
+sheet = wb.create_sheet(title="Measure Results", index=0)
 
 for i, metric in enumerate(metric_list):
     pos_c = f"{chr(ord('A') + (i + 1) % 26)}"
