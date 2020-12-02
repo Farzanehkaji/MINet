@@ -24,7 +24,7 @@ if __name__ == '__main__':
     shutil.copy(f"{proj_root}/utils/solver.py", path_config["trainer_log"])
 
     construct_print(f"{datetime.now()}: Start...")
-    if arg_config["resume_mode"] == "test":
+    if arg_config["resume_mode"] == "test" or arg_config["resume_mode"] == "measure":
         solver.test()
     else:
         solver.train()

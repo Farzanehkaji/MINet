@@ -62,6 +62,9 @@ def cal_pr_mae_meanf(prediction, gt):
             precision.append(tp / p)
             recall.append(tp / t)
 
+    precision = np.reshape(precision,(256,1))
+    recall = np.reshape(recall,(256,1))
+
     return precision, recall, mae, meanf
 
 

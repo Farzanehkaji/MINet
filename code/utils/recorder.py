@@ -38,8 +38,8 @@ class TBRecorder(object):
 
 class XLSXRecoder(object):
     def __init__(self, xlsx_path, module_name, model_name):
-        self.dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
-        self.dataset_num_list = [5019, 5168, 1447, 1000, 850, 1200]
+        self.dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC","MSRA10K"]
+        self.dataset_num_list = [5019, 5168, 1447, 1000, 850, 1200, 10000]
         # self.metric_list = ["MAXF", "MEANF", "MAE"]
         self.metric_list = ["MAXF", "MEANF", "MAE",'Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'MAE2']
 
@@ -157,7 +157,7 @@ class XLSXRecoder(object):
                             )
             # Data set not in spreadsheet yet
             if dataset_found == False:
-                insertcol = sheet.max_column + 1
+                insertcol = sheet.max_column
 
                 if insertcol // 26 == 0:
                     start_region_idx = f"{chr(ord('A') + insertcol)}1"
@@ -166,12 +166,12 @@ class XLSXRecoder(object):
                         f"{chr(ord('A') + insertcol // 26 - 1)}"
                         f"{chr(ord('A') + insertcol % 26)}1"
                     )
-                if (insertcol + num_metrics) // 26 == 0:
-                    end_region_idx = f"{chr(ord('A') + insertcol + num_metrics)}1"
+                if (insertcol + num_metrics - 1) // 26 == 0:
+                    end_region_idx = f"{chr(ord('A') + insertcol + num_metrics - 1)}1"
                 else:
                     end_region_idx = (
-                        f"{chr(ord('A') + (insertcol + num_metrics) // 26 - 1)}"
-                        f"{chr(ord('A') + (insertcol + num_metrics) % 26)}1"
+                        f"{chr(ord('A') + (insertcol + num_metrics - 1) // 26 - 1)}"
+                        f"{chr(ord('A') + (insertcol + num_metrics - 1) % 26)}1"
                     )
 
                 region_idx = f"{start_region_idx}:{end_region_idx}"
@@ -187,10 +187,10 @@ class XLSXRecoder(object):
 
                 # Add measurement titles
                 for i, measure in enumerate(self.metric_list):
-                    sheet.cell(row=3,column=i+insertcol,value=measure)
+                    sheet.cell(row=3,column=i+insertcol + 1,value=measure)
 
                 # Add measurement data
-                for row in sheet.iter_rows(min_row=idx_insert_row, min_col=insertcol, max_col=insertcol + num_metrics, max_row=idx_insert_row):
+                for row in sheet.iter_rows(min_row=idx_insert_row, min_col=insertcol + 1, max_col=insertcol + num_metrics, max_row=idx_insert_row):
                     for cell in row:
                         metric_name = sheet.cell(row=3, column=cell.column).value
                         cell.value = data[dataset_name][metric_name]

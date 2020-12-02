@@ -117,6 +117,8 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
             # pr['Max-F'] = np.max(f_measures)
             values['Max-F'] = np.max(f_measures)
         else:
+            # There were likely no images found in the directory, so pr['Precision']
+            # is an empty set
             values['Max-F'] = 0
 
     if save:

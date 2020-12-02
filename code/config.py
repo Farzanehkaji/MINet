@@ -12,31 +12,38 @@ dutomron_path = os.path.join(datasets_root, "DUT-OMRON")
 hkuis_path = os.path.join(datasets_root, "HKU-IS")
 pascals_path = os.path.join(datasets_root, "PASCAL-S")
 soc_path = os.path.join(datasets_root, "SOC/Validation")
+soctr_path = os.path.join(datasets_root, "SOC/Train")
 dutstr_path = os.path.join(datasets_root, "DUTS/Train")
 dutste_path = os.path.join(datasets_root, "DUTS/Test")
+msra10K_path = os.path.join(datasets_root, "MSRA10K")
 
 arg_config = {
-    "model": "MINet_Res50",  # The netwotk model to be used. Need to import accordingly in 'network/__init__.py'
+    "model": "MINet_VGG16",  # The netwotk model to be used. Need to import accordingly in 'network/__init__.py'
+    # "info": "SOCtr"
     "info": "",  # You can include supplmentary descriptions. It will be attached to the end of the exp_name. If left empty, nothing will be attached 
     "use_amp": False,  # Whether to enable AMP (Automatic Mixed Precision) to speed up training 
-    "resume_mode": "test",  # The mode for resume parameters: ['train', 'test', '']
+    "resume_mode": "measure",  # The mode for resume parameters: ['train', 'test', 'measure', '']
+                            # If resume_mode is 'measure' it will only generate new predictions if
+                            # no predictions exist yet, otherwise it will simply compute the measure
+                            # statistics on the existing predictions made with "save_pre": True
     "use_aux_loss": True,  # Whether to enable uxiliary loss. If true, will use CEL in the training
-    "save_pre": True,  # Whether to save final prediction results
+    "save_pre": False,  # Whether to save final prediction results
     "epoch_num": 50,  # Number of epochs. Set to 0 means to test the model directly
     "lr": 0.001,  # Learning rate. When fine-tuning, set to 1/100 of the original value
-    "xlsx_name": "result.xlsx",  # The name of the record file
+    "xlsx_name": "result_duts_train.xlsx",  # The name of the record file
     
     # Dataset settings
     "rgb_data": {
         "tr_data_path": dutstr_path,
         "te_data_list": OrderedDict(
             {
-                "pascal-s": pascals_path,
-                "ecssd": ecssd_path,
-                "hku-is": hkuis_path,
-                "duts": dutste_path,
-                "dut-omron": dutomron_path,
-                "soc": soc_path,
+                # "pascal-s": pascals_path,
+                # "ecssd": ecssd_path,
+                # "hku-is": hkuis_path,
+                # "duts": dutste_path,
+                # "dut-omron": dutomron_path,
+                # "soc": soc_path,
+                "msra10k": msra10K_path,
             },
         ),
     },

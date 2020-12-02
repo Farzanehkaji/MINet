@@ -33,7 +33,7 @@ from utils.pipeline_ops import (
     save_checkpoint,
 )
 from utils.recorder import TBRecorder, Timer, XLSXRecoder
-
+from datetime import datetime
 
 class Solver:
     def __init__(self, exp_name: str, arg_dict: dict, path_dict: dict):
@@ -73,7 +73,7 @@ class Solver:
             raise AttributeError
         pprint(self.arg_dict)
 
-        if self.arg_dict["resume_mode"] == "test":
+        if self.arg_dict["resume_mode"] == "test" or self.arg_dict["resume_mode"] == "measure":
             # resume model only to test model.
             # self.start_epoch is useless
             resume_checkpoint(
@@ -223,6 +223,10 @@ class Solver:
     def test(self):
         self.net.eval()
 
+        msg = f"Testing start time: {datetime.now()}"
+        construct_print(msg)
+        write_data_to_file(msg, self.path_dict["te_log"])
+
         total_results = {}
         for data_name, data_path in self.te_data_list.items():
             construct_print(f"Testing with testset: {data_name}")
@@ -240,6 +244,10 @@ class Solver:
             msg = f"Results on the testset({data_name}:'{data_path}'): {results}"
             construct_print(msg)
             write_data_to_file(msg, self.path_dict["te_log"])
+            # Print out time taken
+            msg = f"Time Finish on testset {data_name}: {datetime.now()}"
+            construct_print(msg)
+            write_data_to_file(msg, self.path_dict["te_log"])
 
             total_results[data_name] = results
 
@@ -252,8 +260,11 @@ class Solver:
     def _test_process(self, save_pre):
         loader = self.te_loader
 
-        pres = [AvgMeter() for _ in range(256)]
-        recs = [AvgMeter() for _ in range(256)]
+        # pres = [AvgMeter() for _ in range(256)]
+        # recs = [AvgMeter() for _ in range(256)]
+        pres = list()
+        recs = list()
+
         meanfs = AvgMeter()
         maes = AvgMeter()
         
@@ -273,20 +284,39 @@ class Solver:
         tqdm_iter = tqdm(enumerate(loader), total=len(loader), leave=False)
         for test_batch_id, test_data in tqdm_iter:
             tqdm_iter.set_description(f"{self.exp_name}: te=>{test_batch_id + 1}")
-            with torch.no_grad():
-                in_imgs, in_mask_paths, in_names = test_data
-                in_imgs = in_imgs.to(self.dev, non_blocking=True)
-                outputs = self.net(in_imgs)
+            in_imgs, in_mask_paths, in_names = test_data
 
-            outputs_np = outputs.sigmoid().cpu().detach()
+            generate_out_imgs = False
+            if self.arg_dict["resume_mode"] == "measure":
+                # Check if prediction masks have already been created
+                for item_id, in_fname in enumerate(in_names):
+                    oimg_path = os.path.join(self.save_path, in_fname + ".png")
+                    if not os.path.exists(oimg_path):
+                        # Out image doesn't exist yet
+                        generate_out_imgs = True
+                        break
+            else:
+                generate_out_imgs = True
 
-            for item_id, out_item in enumerate(outputs_np):
+            if generate_out_imgs:
+                with torch.no_grad():
+                    in_imgs = in_imgs.to(self.dev, non_blocking=True)
+                    outputs = self.net(in_imgs)
+
+                outputs_np = outputs.sigmoid().cpu().detach()
+
+            for item_id, in_fname in enumerate(in_names):
+                oimg_path = os.path.join(self.save_path, in_fname + ".png")
+                if self.arg_dict["resume_mode"] == "measure" and generate_out_imgs == False:
+                    out_img = Image.open(oimg_path).convert("L")
+                else:
+                    out_item = outputs_np[item_id]
+                    out_img = self.to_pil(out_item).resize(gt_img.size, resample=Image.NEAREST)
+
                 gimg_path = os.path.join(in_mask_paths[item_id])
                 gt_img = Image.open(gimg_path).convert("L")
-                out_img = self.to_pil(out_item).resize(gt_img.size, resample=Image.NEAREST)
 
-                if save_pre:
-                    oimg_path = os.path.join(self.save_path, in_names[item_id] + ".png")
+                if save_pre and generate_out_imgs:
                     out_img.save(oimg_path)
 
                 gt_img = np.array(gt_img)
@@ -300,13 +330,15 @@ class Solver:
                 else:
                     sm = (sm - sm.min()) / (sm.max() - sm.min())
                 gt = np.zeros_like(gt_img, dtype=np.float32)
-                gt[gt_img > 128] = 1
+                gt[gt_img > 256*gt_threshold] = 1
 
                 ps, rs, mae, meanf = cal_pr_mae_meanf(out_img, gt_img)
-                for pidx, pdata in enumerate(zip(ps, rs)):
-                    p, r = pdata
-                    pres[pidx].update(p)
-                    recs[pidx].update(r)
+                pres.append(ps)
+                recs.append(rs)
+                # for pidx, pdata in enumerate(zip(ps, rs)):
+                #     p, r = pdata
+                #     pres[pidx].update(p)
+                #     recs[pidx].update(r)
                 maes.update(mae)
                 meanfs.update(meanf)
 
@@ -365,6 +397,16 @@ class Solver:
             # pr['Max-F'] = np.max(f_measures)
             values['Max-F'] = np.max(f_measures)
 
-        maxf = cal_maxf([pre.avg for pre in pres], [rec.avg for rec in recs])
+        # maxf = cal_maxf([pre.avg for pre in pres], [rec.avg for rec in recs])
+
+        # Calculate MAXF using original algorithm pr, re curves
+        pres = np.mean(np.hstack(pres[:]), 1)
+        recs = np.mean(np.hstack(recs[:]), 1)
+        f_measures = (1 + beta ** 2) * pres * recs / (
+                beta ** 2 * pres + recs)
+        # Remove any NaN values to allow calculation
+        f_measures[np.isnan(f_measures)] = 0
+        maxf = np.max(f_measures)
+
         results = {"MAXF": maxf, "MEANF": meanfs.avg, "MAE": maes.avg, **values}
         return results
