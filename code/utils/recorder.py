@@ -41,7 +41,7 @@ class XLSXRecoder(object):
         self.dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC","MSRA10K","THUR15K"]
         self.dataset_num_list = [5019, 5168, 1447, 1000, 850, 1200, 10000, 15531]
         # self.metric_list = ["MAXF", "MEANF", "MAE"]
-        self.metric_list = ["MAXF", "MEANF", "MAE",'Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'MAE2']
+        self.metric_list = ["MAXF", "MEANF", "MAE",'Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'Mod-Wgt-F']
 
         self.module_name = module_name
         self.model_name = model_name

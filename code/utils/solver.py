@@ -269,7 +269,7 @@ class Solver:
         maes = AvgMeter()
         
         # Measures from Saliency toolbox
-        measures = ['Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'MAE2']
+        measures = ['Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'Mod-Wgt-F']
         beta=np.sqrt(0.3) # default beta parameter used in the adaptive F-measure
         gt_threshold=0.5 # The threshold that is used to binrize ground truth maps.
 
@@ -361,6 +361,12 @@ class Solver:
                     # This shouldn't be returning -1 anymore, but just in case
                     if tmp_Wgt_F != -1:
                         values['Wgt-F'].append(tmp_Wgt_F)
+                if 'Mod-Wgt-F' in measures:
+                    tmp_Wgt_F = weighted_fmeasure(gt, sm, allowBlackMask=True)
+
+                    # This shouldn't be returning -1 anymore, but just in case
+                    if tmp_Wgt_F != -1:
+                        values['Mod-Wgt-F'].append(tmp_Wgt_F)
                 if 'Max-F' in measures:
                     prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
 
@@ -384,6 +390,8 @@ class Solver:
 
         if 'Wgt-F' in measures:
             values['Wgt-F'] = np.mean(values['Wgt-F'])
+        if 'Mod-Wgt-F' in measures:
+            values['Mod-Wgt-F'] = np.mean(values['Mod-Wgt-F'])
 
         if 'Max-F' in measures:
             pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)

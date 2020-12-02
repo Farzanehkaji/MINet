@@ -432,7 +432,7 @@ def s_object(gt, sm):
 # Weighted F-Measure
 # article: https://ieeexplore.ieee.org/document/6909433
 # Matlab code: https://cgm.technion.ac.il/Computer-Graphics-Multimedia/Software/FGEval/
-def weighted_fmeasure(gt, sm, beta2=1):
+def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = False):
     """
     This fucntion computes Weighted F-Measure between the saliency map and the ground truth
     article: https://ieeexplore.ieee.org/document/6909433
@@ -450,7 +450,7 @@ def weighted_fmeasure(gt, sm, beta2=1):
     value : float
         The calculated Weighted F-Measure
     """
-    if np.sum(gt) == 0:
+    if np.sum(gt) == 0 and allowBlackMask:
         # Ground truth is a black mask, so there is no need to apply weighting to pixels regions.
         # As such, this method will use the adaptive_fmeasure() instead, within which 
         # it will compute the precision recall based on returning a completely black mask
