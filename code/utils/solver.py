@@ -352,13 +352,13 @@ class Solver:
                 if 'Adp-F' in measures:
                     tmp_Adp_F = adaptive_fmeasure(gt, sm, beta)
 
-                    # If ground truth is black image, adaptive F measure will return -1
+                    # This shouldn't be returning -1 anymore, but just in case
                     if tmp_Adp_F != -1:
                         values['Adp-F'].append(tmp_Adp_F)
                 if 'Wgt-F' in measures:
                     tmp_Wgt_F = weighted_fmeasure(gt, sm)
 
-                    # If ground truth is black image, weighted F measure will return -1
+                    # This shouldn't be returning -1 anymore, but just in case
                     if tmp_Wgt_F != -1:
                         values['Wgt-F'].append(tmp_Wgt_F)
                 if 'Max-F' in measures:

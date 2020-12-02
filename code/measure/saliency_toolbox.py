@@ -68,13 +68,13 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
             if 'Adp-F' in measures:
                 tmp_Adp_F = adaptive_fmeasure(gt, sm, beta)
 
-                # If ground truth is black image, adaptive F measure will return -1
+                # This shouldn't be returning -1 anymore, but just in case
                 if tmp_Adp_F != -1:
                     values['Adp-F'].append(tmp_Adp_F)
             if 'Wgt-F' in measures:
                 tmp_Wgt_F = weighted_fmeasure(gt, sm)
 
-                # If ground truth is black image, weighted F measure will return -1
+                # This shouldn't be returning -1 anymore, but just in case
                 if tmp_Wgt_F != -1:
                     values['Wgt-F'].append(tmp_Wgt_F)
             if 'Max-F' in measures:
@@ -450,6 +450,12 @@ def weighted_fmeasure(gt, sm, beta2=1):
     value : float
         The calculated Weighted F-Measure
     """
+    if np.sum(gt) == 0:
+        # Ground truth is a black mask, so there is no need to apply weighting to pixels regions.
+        # As such, this method will use the adaptive_fmeasure() instead, within which 
+        # it will compute the precision recall based on returning a completely black mask
+        return adaptive_fmeasure(gt, sm, np.sqrt(0.3))
+
     dst, idx = distance_transform_edt(1 - gt, return_indices=True)
 
     raw_idx = idx[0][gt == 0]
@@ -522,27 +528,38 @@ def adaptive_fmeasure(gt, sm, beta):
     gt_idx = np.where(gt > 0)
     gt_cnt = np.sum(gt)
 
-    if gt_cnt == 0:
-        return 0
+    black_mask = (gt_cnt == 0)
+
+    if black_mask:
+        # Ground truth is a black mask, compute precision and recall based
+        # on returning a pure black mask instead
+        gt_cnt = np.sum(1 - gt)
+        gt_idx = np.where(gt < 1)
+
+        adaptive_threshold = 2 * np.mean(1 - sm)
+        if adaptive_threshold > 1:
+            adaptive_threshold = 1
+        sm_binary = (sm <= adaptive_threshold).astype(np.float32)
     else:
         adaptive_threshold = 2 * np.mean(sm)
         if adaptive_threshold > 1:
             adaptive_threshold = 1
         sm_binary = (sm >= adaptive_threshold).astype(np.float32)
-        hit_cnt = np.sum(sm_binary[gt_idx])
-        alg_cnt = np.sum(sm_binary)
 
-        if hit_cnt == 0:
-            prec = 0
-            recall = 0
-            value = 0
-        else:
-            # prec = hit_cnt / (alg_cnt + eps)
-            prec = hit_cnt / alg_cnt
-            recall = hit_cnt / gt_cnt
-        
-            # value = (1 + beta ** 2) * prec * recall / ((beta ** 2 * prec + recall) + eps)
-            value = (1 + beta ** 2) * prec * recall / (beta ** 2 * prec + recall)
+    hit_cnt = np.sum(sm_binary[gt_idx])
+    alg_cnt = np.sum(sm_binary)
+
+    if hit_cnt == 0:
+        prec = 0
+        recall = 0
+        value = 0
+    else:
+        # prec = hit_cnt / (alg_cnt + eps)
+        prec = hit_cnt / alg_cnt
+        recall = hit_cnt / gt_cnt
+    
+        # value = (1 + beta ** 2) * prec * recall / ((beta ** 2 * prec + recall) + eps)
+        value = (1 + beta ** 2) * prec * recall / (beta ** 2 * prec + recall)
     return value
 
 
@@ -569,29 +586,39 @@ def prec_recall(gt, sm, num_th):
     gt_idx = np.where(gt > 0)
     gt_cnt = np.sum(gt)
 
-    if gt_cnt == 0:
-        # prec = []
-        # recall = []
-        prec = np.zeros((num_th, 1), np.float32)
-        recall = np.zeros((num_th, 1), np.float32)
+    prec = np.zeros((num_th, 1), np.float32)
+    recall = np.zeros((num_th, 1), np.float32)
+
+    hit_cnt = np.zeros((num_th, 1), np.float32)
+    alg_cnt = np.zeros((num_th, 1), np.float32)
+    
+    black_mask = (gt_cnt == 0)
+
+    if black_mask:
+        # Ground truth is a black mask, compute precision and recall based
+        # on returning a pure black mask instead
+        gt_cnt = np.sum(1 - gt)
+        gt_idx = np.where(gt < 1)
+
+        thresholds = np.linspace(1, 0, num_th)      
     else:
-        hit_cnt = np.zeros((num_th, 1), np.float32)
-        alg_cnt = np.zeros((num_th, 1), np.float32)
-        prec = np.zeros((num_th, 1), np.float32)
-        recall = np.zeros((num_th, 1), np.float32)
-
         thresholds = np.linspace(0, 1, num_th)
-        for k, curTh in enumerate(thresholds):
-            sm_binary = (sm >= curTh).astype(np.float32)
-            hit_cnt[k] = np.sum(sm_binary[gt_idx])
-            alg_cnt[k] = np.sum(sm_binary)
 
-            if hit_cnt[k] == 0:
-                prec[k] = 0
-                recall[k] = 0
-            else:
-                # prec = hit_cnt / (alg_cnt + eps)
-                prec[k] = hit_cnt[k] / alg_cnt[k]
-                recall[k] = hit_cnt[k] / gt_cnt
+    for k, curTh in enumerate(thresholds):
+        if not black_mask:
+            sm_binary = (sm >= curTh).astype(np.float32)
+        else:
+            sm_binary = (sm <= curTh).astype(np.float32)
+
+        hit_cnt[k] = np.sum(sm_binary[gt_idx])
+        alg_cnt[k] = np.sum(sm_binary)
+
+        if hit_cnt[k] == 0:
+            prec[k] = 0
+            recall[k] = 0
+        else:
+            # prec = hit_cnt / (alg_cnt + eps)
+            prec[k] = hit_cnt[k] / alg_cnt[k]
+            recall[k] = hit_cnt[k] / gt_cnt
 
     return prec, recall
