@@ -354,22 +354,22 @@ class Solver:
                 if 'S-measure' in measures:
                     values['S-measure'].append(s_measure(gt, sm))
                 if 'Adp-F' in measures:
-                    values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta, False))
+                    values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta, allowBlackMask=False))
                 if 'Mod-Adp-F' in measures:
-                    values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, True))
+                    values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, allowBlackMask=True))
                 if 'Wgt-F' in measures:
                     values['Wgt-F'].append(weighted_fmeasure(gt, sm, allowBlackMask=False))
                 if 'Mod-Wgt-F' in measures:
                     values['Mod-Wgt-F'].append(weighted_fmeasure(gt, sm, allowBlackMask=True))
                 if 'Max-F' in measures:
-                    prec, recall = prec_recall(gt, sm, 256, False)  # 256 thresholds between 0 and 1
+                    prec, recall = prec_recall(gt, sm, 256, allowBlackMask=False)  # 256 thresholds between 0 and 1
 
                     # Check if precision recall curve exists
                     if len(prec) != 0 and len(recall) != 0:
                         pr['Precision'].append(prec)
                         pr['Recall'].append(recall)
                 if 'Mod-Max-F' in measures:
-                    prec, recall = prec_recall(gt, sm, 256, True)  # 256 thresholds between 0 and 1
+                    prec, recall = prec_recall(gt, sm, 256, allowBlackMask=True)  # 256 thresholds between 0 and 1
 
                     # Check if precision recall curve exists
                     if len(prec) != 0 and len(recall) != 0:

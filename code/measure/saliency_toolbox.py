@@ -73,22 +73,22 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
             if 'S-measure' in measures:
                 values['S-measure'].append(s_measure(gt, sm))
             if 'Adp-F' in measures:
-                values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta, False))
+                values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta, allowBlackMask=False))
             if 'Mod-Adp-F' in measures:
-                values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, True))
+                values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, allowBlackMask=True))
             if 'Wgt-F' in measures:
                 values['Wgt-F'].append(weighted_fmeasure(gt, sm, allowBlackMask=False))
             if 'Mod-Wgt-F' in measures:
                 values['Mod-Wgt-F'].append(weighted_fmeasure(gt, sm, allowBlackMask=True))
             if 'Max-F' in measures:
-                prec, recall = prec_recall(gt, sm, 256, False)  # 256 thresholds between 0 and 1
+                prec, recall = prec_recall(gt, sm, 256, allowBlackMask=False)  # 256 thresholds between 0 and 1
 
                 # Check if precision recall curve exists
                 if len(prec) != 0 and len(recall) != 0:
                     pr['Precision'].append(prec)
                     pr['Recall'].append(recall)
             if 'Mod-Max-F' in measures:
-                prec, recall = prec_recall(gt, sm, 256, True)  # 256 thresholds between 0 and 1
+                prec, recall = prec_recall(gt, sm, 256, allowBlackMask=True)  # 256 thresholds between 0 and 1
 
                 # Check if precision recall curve exists
                 if len(prec) != 0 and len(recall) != 0:
@@ -460,7 +460,7 @@ def s_object(gt, sm):
 # Weighted F-Measure
 # article: https://ieeexplore.ieee.org/document/6909433
 # Matlab code: https://cgm.technion.ac.il/Computer-Graphics-Multimedia/Software/FGEval/
-def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = True):
+def weighted_fmeasure(gt, sm, beta2=1, bg_n = 2, allowBlackMask = True):
     """
     This fucntion computes Weighted F-Measure between the saliency map and the ground truth
     article: https://ieeexplore.ieee.org/document/6909433
@@ -472,6 +472,8 @@ def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = True):
         The path to the ground truth directory
     sm : numpy.ndarray
         The path to the predicted saliency map directory
+    bg_n : integer
+        The exponent on (1 - MAE)^n when the ground truth is a black mask and allowBlackMask = True
     allowBlackMask : boolean
         Whether to compute a modified F-Measure when the ground truth is a black mask.
         If this is set to False, zero  will be returned instead which would lower the average
@@ -487,7 +489,7 @@ def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = True):
     if gt_cnt == 0 and allowBlackMask:
         # Ground truth is a black mask, so there is no need to apply weighting to pixels regions.
         # Compute based on returning a pure black mask instead
-        return (1 - mean_square_error(gt, sm)) ** 2
+        return (1 - mean_square_error(gt, sm)) ** bg_n
     elif gt_cnt == 0:
         return 0
 
@@ -542,7 +544,7 @@ def matlab_style_gauss2d(shape=(3, 3), sigma=0.5):
 
 # Adaptive F-measure
 
-def adaptive_fmeasure(gt, sm, beta, allowBlackMask = True):
+def adaptive_fmeasure(gt, sm, beta, bg_n = 2, allowBlackMask = True):
     """
     This fucntion computes Adaptive F-measure between the saliency map and the ground truth using
     the binary method proposed in:
@@ -556,6 +558,8 @@ def adaptive_fmeasure(gt, sm, beta, allowBlackMask = True):
         The path to the predicted saliency map directory
     beta : float
         beta parameter that is used in F-measure formula. Usual is sqrt(0.3)
+    bg_n : integer
+        The exponent on (1 - MAE)^n when the ground truth is a black mask and allowBlackMask = True
     allowBlackMask : boolean
         Whether to compute a modified F-Measure when the ground truth is a black mask.
         If this is set to False, zero  will be returned instead which would lower the average
@@ -573,7 +577,7 @@ def adaptive_fmeasure(gt, sm, beta, allowBlackMask = True):
 
     if black_mask and allowBlackMask:
         # Ground truth is a black mask, compute based on returning a pure black mask instead
-        return (1 - mean_square_error(gt, sm)) ** 2
+        return (1 - mean_square_error(gt, sm)) ** bg_n
     elif black_mask:
         return 0
     
@@ -600,7 +604,7 @@ def adaptive_fmeasure(gt, sm, beta, allowBlackMask = True):
 
 
 
-def prec_recall(gt, sm, num_th, allowBlackMask = True):
+def prec_recall(gt, sm, num_th, bg_n = 2, allowBlackMask = True):
     """
     This fucntion computes the precision recall curves between the saliency map and the ground truth using
     the binary method proposed in:
@@ -612,8 +616,10 @@ def prec_recall(gt, sm, num_th, allowBlackMask = True):
         The path to the ground truth directory
     sm : numpy.ndarray
         The path to the predicted saliency map directory
-    num_th : interger
+    num_th : integer
         The total number of thresholds between 0 and 1
+    bg_n : integer
+        The exponent on pr = np.mean(sm_binary)^n when the ground truth is a black mask and allowBlackMask = True
     allowBlackMask : boolean
         Whether to compute a modified precision/recall curve when the ground truth is a black mask.
         If this is set to False, a zero vector will be returned instead which would lower the average
@@ -650,7 +656,7 @@ def prec_recall(gt, sm, num_th, allowBlackMask = True):
                 prec[k] = 0
                 recall[k] = 0
             else:
-                prec[k] = np.mean(sm_binary) ** 2
+                prec[k] = np.mean(sm_binary) ** bg_n
                 recall[k] = hit_cnt[k] / gt_cnt
     elif black_mask:
         # Simply return zero vectors (this will reduce average over dataset)
