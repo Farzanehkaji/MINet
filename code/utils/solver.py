@@ -307,14 +307,14 @@ class Solver:
 
             for item_id, in_fname in enumerate(in_names):
                 oimg_path = os.path.join(self.save_path, in_fname + ".png")
+                gimg_path = os.path.join(in_mask_paths[item_id])
+                gt_img = Image.open(gimg_path).convert("L")
+
                 if self.arg_dict["resume_mode"] == "measure" and generate_out_imgs == False:
                     out_img = Image.open(oimg_path).convert("L")
                 else:
                     out_item = outputs_np[item_id]
                     out_img = self.to_pil(out_item).resize(gt_img.size, resample=Image.NEAREST)
-
-                gimg_path = os.path.join(in_mask_paths[item_id])
-                gt_img = Image.open(gimg_path).convert("L")
 
                 if save_pre and generate_out_imgs:
                     out_img.save(oimg_path)
