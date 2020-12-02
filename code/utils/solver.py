@@ -269,17 +269,21 @@ class Solver:
         maes = AvgMeter()
         
         # Measures from Saliency toolbox
-        measures = ['Max-F', 'Adp-F', 'Wgt-F', 'E-measure', 'S-measure', 'Mod-Wgt-F']
+        measures = ['Wgt-F', 'E-measure', 'S-measure', 'Mod-Max-F', 'Mod-Adp-F', 'Mod-Wgt-F']
         beta=np.sqrt(0.3) # default beta parameter used in the adaptive F-measure
         gt_threshold=0.5 # The threshold that is used to binrize ground truth maps.
 
         values = dict() # initialize measure value dictionary
         pr = dict() # initialize precision recall dictionary
+        prm = dict() # initialize precision recall dictionary for Mod-Max-F
         for idx in measures:
             values[idx] = list()
             if idx == 'Max-F':
                 pr['Precision'] = list()
                 pr['Recall']    = list()
+            if idx == 'Mod-Max-F':
+                prm['Precision'] = list()
+                prm['Recall']    = list()
 
         tqdm_iter = tqdm(enumerate(loader), total=len(loader), leave=False)
         for test_batch_id, test_data in tqdm_iter:
@@ -350,30 +354,27 @@ class Solver:
                 if 'S-measure' in measures:
                     values['S-measure'].append(s_measure(gt, sm))
                 if 'Adp-F' in measures:
-                    tmp_Adp_F = adaptive_fmeasure(gt, sm, beta)
-
-                    # This shouldn't be returning -1 anymore, but just in case
-                    if tmp_Adp_F != -1:
-                        values['Adp-F'].append(tmp_Adp_F)
+                    values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta, False))
+                if 'Mod-Adp-F' in measures:
+                    values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, True))
                 if 'Wgt-F' in measures:
-                    tmp_Wgt_F = weighted_fmeasure(gt, sm)
-
-                    # This shouldn't be returning -1 anymore, but just in case
-                    if tmp_Wgt_F != -1:
-                        values['Wgt-F'].append(tmp_Wgt_F)
+                    values['Wgt-F'].append(weighted_fmeasure(gt, sm, False))
                 if 'Mod-Wgt-F' in measures:
-                    tmp_Wgt_F = weighted_fmeasure(gt, sm, allowBlackMask=True)
-
-                    # This shouldn't be returning -1 anymore, but just in case
-                    if tmp_Wgt_F != -1:
-                        values['Mod-Wgt-F'].append(tmp_Wgt_F)
+                    values['Mod-Wgt-F'].append(weighted_fmeasure(gt, sm, True))
                 if 'Max-F' in measures:
-                    prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
+                    prec, recall = prec_recall(gt, sm, 256, False)  # 256 thresholds between 0 and 1
 
                     # Check if precision recall curve exists
                     if len(prec) != 0 and len(recall) != 0:
                         pr['Precision'].append(prec)
                         pr['Recall'].append(recall)
+                if 'Mod-Max-F' in measures:
+                    prec, recall = prec_recall(gt, sm, 256, True)  # 256 thresholds between 0 and 1
+
+                    # Check if precision recall curve exists
+                    if len(prec) != 0 and len(recall) != 0:
+                        prm['Precision'].append(prec)
+                        prm['Recall'].append(recall)
 
         # Compute total measures over all images
         if 'MAE2' in measures:
@@ -387,6 +388,8 @@ class Solver:
 
         if 'Adp-F' in measures:
             values['Adp-F'] = np.mean(values['Adp-F'])
+        if 'Mod-Adp-F' in measures:
+            values['Mod-Adp-F'] = np.mean(values['Mod-Adp-F'])
 
         if 'Wgt-F' in measures:
             values['Wgt-F'] = np.mean(values['Wgt-F'])
@@ -394,16 +397,33 @@ class Solver:
             values['Mod-Wgt-F'] = np.mean(values['Mod-Wgt-F'])
 
         if 'Max-F' in measures:
-            pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)
-            pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
-            f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
-                    beta ** 2 * pr['Precision'] + pr['Recall'])
+            if len(pr['Precision']) > 0:
+                pr['Precision'] = np.mean(np.hstack(pr['Precision'][:]), 1)
+                pr['Recall'] = np.mean(np.hstack(pr['Recall'][:]), 1)
+                f_measures = (1 + beta ** 2) * pr['Precision'] * pr['Recall'] / (
+                        beta ** 2 * pr['Precision'] + pr['Recall'])
 
-            # Remove any NaN values to allow calculation
-            f_measures[np.isnan(f_measures)] = 0
-            pr['Fmeasure_all_thresholds'] = f_measures
-            # pr['Max-F'] = np.max(f_measures)
-            values['Max-F'] = np.max(f_measures)
+                # Remove any NaN values to allow calculation
+                f_measures[np.isnan(f_measures)] = 0
+                values['Max-F'] = np.max(f_measures)
+            else:
+                # There were likely no images found in the directory, so pr['Precision']
+                # is an empty set
+                values['Max-F'] = 0
+        if 'Mod-Max-F' in measures:
+            if len(prm['Precision']) > 0:
+                prm['Precision'] = np.mean(np.hstack(prm['Precision'][:]), 1)
+                prm['Recall'] = np.mean(np.hstack(prm['Recall'][:]), 1)
+                f_measures = (1 + beta ** 2) * prm['Precision'] * prm['Recall'] / (
+                        beta ** 2 * prm['Precision'] + prm['Recall'])
+
+                # Remove any NaN values to allow calculation
+                f_measures[np.isnan(f_measures)] = 0
+                values['Mod-Max-F'] = np.max(f_measures)
+            else:
+                # There were likely no images found in the directory, so prm['Precision']
+                # is an empty set
+                values['Mod-Max-F'] = 0
 
         # maxf = cal_maxf([pre.avg for pre in pres], [rec.avg for rec in recs])
 

@@ -7,12 +7,12 @@ sm_dir = "output/MINet_Res50_S320_BS4_E50_WE1_AMPn_LR0.001_LTpoly_OTsgdtrick_ALy
 gt_dir = "../../MINet-Datasets"
 
 # List of datasets
-# ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
-dataset_list = ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC"]
+# ["DUTS", "DUT-OMRON", "HKU-IS", "ECSSD", "PASCAL-S", "SOC","MSRA10K","THUR15K"]
+dataset_list = ["SOC"]
 
 # List of metrics
 # ['MAE', 'E-measure', 'S-measure', 'Max-F', 'Adp-F', 'Wgt-F']
-metric_list = ['Max-F', 'Adp-F', 'Wgt-F','E-measure', 'S-measure','MAE']
+metric_list = ['Max-F', 'Adp-F', 'Wgt-F', 'MAE', 'E-measure', 'S-measure','Mod-Max-F', 'Mod-Adp-F', 'Mod-Wgt-F']
 
 print("metric_list:" + str(metric_list))
 
@@ -54,4 +54,4 @@ for i, dataset in enumerate(dataset_list):
     # if pr:
     #     print(pr)
 
-wb.save("output/Mesure Results Res50.xlsx")
+wb.save("output/Measure Results Res50.xlsx")

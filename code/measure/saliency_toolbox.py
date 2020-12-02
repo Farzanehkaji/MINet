@@ -23,12 +23,15 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
         The path to the predicted saliency map directory
     measures : list
         list of measure names which need to be calculated
-        supported measures: 'MAE'       => Mean Squared Error
-                            'E-measure' =>  Enhanced-alignment measure
-                            'S-measure' =>  Structure-measure
-                            'Max-F'     =>  Maximum F-measure
-                            'Adp-F'     =>  Adaptive F-measure
-                            'Wgt-F'     =>  Weighted F-measure
+        supported measures: 'MAE'        => Mean Squared Error
+                            'E-measure'  =>  Enhanced-alignment measure
+                            'S-measure'  =>  Structure-measure
+                            'Max-F'      =>  Maximum F-measure
+                            'Adp-F'      =>  Adaptive F-measure
+                            'Wgt-F'      =>  Weighted F-measure
+                            'Mod-Max-F'  =>  Maximum F-measure (allows black masks)
+                            'Mod-Adp-F'  =>  Adaptive F-measure (allows black masks)
+                            'Mod-Wgt-F'  =>  Weighted F-measure (allows black masks)
     save : str
         If spesified, the results will be saved in 'save' directory
     beta : float
@@ -44,12 +47,16 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
 
     values = dict()
     pr = dict()
+    prm = dict()
     
     for idx in measures:
         values[idx] = list()
         if idx == 'Max-F':
             pr['Precision'] = list()
             pr['Recall']    = list()
+        if idx == 'Mod-Max-F':
+            prm['Precision'] = list()
+            prm['Recall']    = list()
 
     for gt_name in tqdm(glob(os.path.join(gt_dir, '*'))):
         _, name = os.path.split(gt_name)
@@ -66,24 +73,27 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
             if 'S-measure' in measures:
                 values['S-measure'].append(s_measure(gt, sm))
             if 'Adp-F' in measures:
-                tmp_Adp_F = adaptive_fmeasure(gt, sm, beta)
-
-                # This shouldn't be returning -1 anymore, but just in case
-                if tmp_Adp_F != -1:
-                    values['Adp-F'].append(tmp_Adp_F)
+                values['Adp-F'].append(adaptive_fmeasure(gt, sm, beta, False))
+            if 'Mod-Adp-F' in measures:
+                values['Mod-Adp-F'].append(adaptive_fmeasure(gt, sm, beta, True))
             if 'Wgt-F' in measures:
-                tmp_Wgt_F = weighted_fmeasure(gt, sm)
-
-                # This shouldn't be returning -1 anymore, but just in case
-                if tmp_Wgt_F != -1:
-                    values['Wgt-F'].append(tmp_Wgt_F)
+                values['Wgt-F'].append(weighted_fmeasure(gt, sm, False))
+            if 'Mod-Wgt-F' in measures:
+                values['Mod-Wgt-F'].append(weighted_fmeasure(gt, sm, True))
             if 'Max-F' in measures:
-                prec, recall = prec_recall(gt, sm, 256)  # 256 thresholds between 0 and 1
+                prec, recall = prec_recall(gt, sm, 256, False)  # 256 thresholds between 0 and 1
 
                 # Check if precision recall curve exists
                 if len(prec) != 0 and len(recall) != 0:
                     pr['Precision'].append(prec)
                     pr['Recall'].append(recall)
+            if 'Mod-Max-F' in measures:
+                prec, recall = prec_recall(gt, sm, 256, True)  # 256 thresholds between 0 and 1
+
+                # Check if precision recall curve exists
+                if len(prec) != 0 and len(recall) != 0:
+                    prm['Precision'].append(prec)
+                    prm['Recall'].append(recall)
 
         else:
             print("\n{} not found!".format(os.path.basename(sm_name)))
@@ -100,9 +110,13 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
 
     if 'Adp-F' in measures:
         values['Adp-F'] = np.mean(values['Adp-F'])
+    if 'Mod-Adp-F' in measures:
+        values['Mod-Adp-F'] = np.mean(values['Mod-Adp-F'])
 
     if 'Wgt-F' in measures:
         values['Wgt-F'] = np.mean(values['Wgt-F'])
+    if 'Mod-Wgt-F' in measures:
+        values['Mod-Wgt-F'] = np.mean(values['Mod-Wgt-F'])
 
     if 'Max-F' in measures:
         if len(pr['Precision']) > 0:
@@ -120,6 +134,20 @@ def calculate_measures(gt_dir, sm_dir, measures, save=False, beta=np.sqrt(0.3), 
             # There were likely no images found in the directory, so pr['Precision']
             # is an empty set
             values['Max-F'] = 0
+    if 'Mod-Max-F' in measures:
+        if len(prm['Precision']) > 0:
+            prm['Precision'] = np.mean(np.hstack(prm['Precision'][:]), 1)
+            prm['Recall'] = np.mean(np.hstack(prm['Recall'][:]), 1)
+            f_measures = (1 + beta ** 2) * prm['Precision'] * prm['Recall'] / (
+                    beta ** 2 * prm['Precision'] + prm['Recall'])
+
+            # Remove any NaN values to allow calculation
+            f_measures[np.isnan(f_measures)] = 0
+            values['Mod-Max-F'] = np.max(f_measures)
+        else:
+            # There were likely no images found in the directory, so prm['Precision']
+            # is an empty set
+            values['Mod-Max-F'] = 0
 
     if save:
         if not os.path.isdir(save):
@@ -432,7 +460,7 @@ def s_object(gt, sm):
 # Weighted F-Measure
 # article: https://ieeexplore.ieee.org/document/6909433
 # Matlab code: https://cgm.technion.ac.il/Computer-Graphics-Multimedia/Software/FGEval/
-def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = False):
+def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = True):
     """
     This fucntion computes Weighted F-Measure between the saliency map and the ground truth
     article: https://ieeexplore.ieee.org/document/6909433
@@ -444,17 +472,24 @@ def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = False):
         The path to the ground truth directory
     sm : numpy.ndarray
         The path to the predicted saliency map directory
+    allowBlackMask : boolean
+        Whether to compute a modified F-Measure when the ground truth is a black mask.
+        If this is set to False, zero  will be returned instead which would lower the average
+        used to calculate the Wgt-F measure.
 
     Returns
     -------
     value : float
         The calculated Weighted F-Measure
     """
-    if np.sum(gt) == 0 and allowBlackMask:
+    gt_cnt = np.sum(gt)
+
+    if gt_cnt == 0 and allowBlackMask:
         # Ground truth is a black mask, so there is no need to apply weighting to pixels regions.
-        # As such, this method will use the adaptive_fmeasure() instead, within which 
-        # it will compute the precision recall based on returning a completely black mask
-        return adaptive_fmeasure(gt, sm, np.sqrt(0.3))
+        # Compute based on returning a pure black mask instead
+        return (1 - mean_square_error(gt, sm)) ** 2
+    elif gt_cnt == 0:
+        return 0
 
     dst, idx = distance_transform_edt(1 - gt, return_indices=True)
 
@@ -486,7 +521,7 @@ def weighted_fmeasure(gt, sm, beta2=1, allowBlackMask = False):
 
         value = (1 + beta2) * (rec * prec) / (eps + (beta2 * rec) + prec)
     else:
-        value = -1
+        value = 0
     return value
 
 def matlab_style_gauss2d(shape=(3, 3), sigma=0.5):
@@ -507,7 +542,7 @@ def matlab_style_gauss2d(shape=(3, 3), sigma=0.5):
 
 # Adaptive F-measure
 
-def adaptive_fmeasure(gt, sm, beta):
+def adaptive_fmeasure(gt, sm, beta, allowBlackMask = True):
     """
     This fucntion computes Adaptive F-measure between the saliency map and the ground truth using
     the binary method proposed in:
@@ -519,6 +554,12 @@ def adaptive_fmeasure(gt, sm, beta):
         The path to the ground truth directory
     sm : numpy.ndarray
         The path to the predicted saliency map directory
+    beta : float
+        beta parameter that is used in F-measure formula. Usual is sqrt(0.3)
+    allowBlackMask : boolean
+        Whether to compute a modified F-Measure when the ground truth is a black mask.
+        If this is set to False, zero  will be returned instead which would lower the average
+        used to calculate the Adp-F measure.
 
     Returns
     -------
@@ -530,21 +571,16 @@ def adaptive_fmeasure(gt, sm, beta):
 
     black_mask = (gt_cnt == 0)
 
-    if black_mask:
-        # Ground truth is a black mask, compute precision and recall based
-        # on returning a pure black mask instead
-        gt_cnt = np.sum(1 - gt)
-        gt_idx = np.where(gt < 1)
-
-        adaptive_threshold = 2 * np.mean(1 - sm)
-        if adaptive_threshold > 1:
-            adaptive_threshold = 1
-        sm_binary = (sm <= adaptive_threshold).astype(np.float32)
-    else:
-        adaptive_threshold = 2 * np.mean(sm)
-        if adaptive_threshold > 1:
-            adaptive_threshold = 1
-        sm_binary = (sm >= adaptive_threshold).astype(np.float32)
+    if black_mask and allowBlackMask:
+        # Ground truth is a black mask, compute based on returning a pure black mask instead
+        return (1 - mean_square_error(gt, sm)) ** 2
+    elif black_mask:
+        return 0
+    
+    adaptive_threshold = 2 * np.mean(sm)
+    if adaptive_threshold > 1:
+        adaptive_threshold = 1
+    sm_binary = (sm >= adaptive_threshold).astype(np.float32)
 
     hit_cnt = np.sum(sm_binary[gt_idx])
     alg_cnt = np.sum(sm_binary)
@@ -564,12 +600,12 @@ def adaptive_fmeasure(gt, sm, beta):
 
 
 
-def prec_recall(gt, sm, num_th):
+def prec_recall(gt, sm, num_th, allowBlackMask = True):
     """
-    This fucntion computes Adaptive F-measure between the saliency map and the ground truth using
+    This fucntion computes the precision recall curves between the saliency map and the ground truth using
     the binary method proposed in:
     https://ieeexplore.ieee.org/document/5206596
-    The results of this dunction will be used to calculate Max-F measure and plot PR and F-Threshold Curves
+    The results of this function will be used to calculate Max-F measure and plot PR and F-Threshold Curves
     parameters
     ----------
     gt : numpy.ndarray
@@ -578,6 +614,10 @@ def prec_recall(gt, sm, num_th):
         The path to the predicted saliency map directory
     num_th : interger
         The total number of thresholds between 0 and 1
+    allowBlackMask : boolean
+        Whether to compute a modified precision/recall curve when the ground truth is a black mask.
+        If this is set to False, a zero vector will be returned instead which would lower the average
+        used to calculate the Max-F measure.
     Returns
     -------
     prec, recall:  numpy.ndarray
@@ -594,31 +634,42 @@ def prec_recall(gt, sm, num_th):
     
     black_mask = (gt_cnt == 0)
 
-    if black_mask:
+    if black_mask and allowBlackMask:
         # Ground truth is a black mask, compute precision and recall based
         # on returning a pure black mask instead
         gt_cnt = np.sum(1 - gt)
-        gt_idx = np.where(gt < 1)
 
-        thresholds = np.linspace(1, 0, num_th)      
+        thresholds = np.linspace(1, 0, num_th)
+
+        for k, curTh in enumerate(thresholds):
+            sm_binary = (sm <= curTh).astype(np.float32)
+
+            hit_cnt[k] = np.sum(sm_binary)
+
+            if hit_cnt[k] == 0:
+                prec[k] = 0
+                recall[k] = 0
+            else:
+                prec[k] = np.mean(sm_binary) ** 2
+                recall[k] = hit_cnt[k] / gt_cnt
+    elif black_mask:
+        # Simply return zero vectors (this will reduce average over dataset)
+        return prec, recall
     else:
         thresholds = np.linspace(0, 1, num_th)
 
-    for k, curTh in enumerate(thresholds):
-        if not black_mask:
+        for k, curTh in enumerate(thresholds):
             sm_binary = (sm >= curTh).astype(np.float32)
-        else:
-            sm_binary = (sm <= curTh).astype(np.float32)
 
-        hit_cnt[k] = np.sum(sm_binary[gt_idx])
-        alg_cnt[k] = np.sum(sm_binary)
+            hit_cnt[k] = np.sum(sm_binary[gt_idx])
+            alg_cnt[k] = np.sum(sm_binary)
 
-        if hit_cnt[k] == 0:
-            prec[k] = 0
-            recall[k] = 0
-        else:
-            # prec = hit_cnt / (alg_cnt + eps)
-            prec[k] = hit_cnt[k] / alg_cnt[k]
-            recall[k] = hit_cnt[k] / gt_cnt
+            if hit_cnt[k] == 0:
+                prec[k] = 0
+                recall[k] = 0
+            else:
+                # prec = hit_cnt / (alg_cnt + eps)
+                prec[k] = hit_cnt[k] / alg_cnt[k]
+                recall[k] = hit_cnt[k] / gt_cnt
 
     return prec, recall
